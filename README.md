@@ -62,8 +62,10 @@ python graphs.py
 5. `5_heatmap_sp500.png` — Тепловая карта S&P 500
 6. `6_heatmap_imoex.png` — Тепловая карта IMOEX
 
-## 👤 Автор
-**Михаил Шардин**
-* Блог/Сайт: [https://shardin.name/](https://shardin.name/)
+## 👤 Автор 
 
-Лицензия: MIT (вы можете свободно использовать, изменять и распространять этот код).
+**Автор:** Михаил Шардин
+
+**Онлайн-визитка:** [shardin.name](https://shardin.name/?utm_source=github)
+
+**Telegram-канал:** ["Умный Дом Инвестора"](https://t.me/+asaEcPax8o41MjQy)
