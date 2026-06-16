@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Настройки генерации графиков
-FIGURE_DPI = 300                 # Разрешение картинок (300 для печати, 100-130 для экрана)
+FIGURE_DPI = 450                 # Разрешение картинок (300 для печати, 100-130 для экрана)
 ENABLE_WATERMARK = True          # Включить/выключить подпись автора на графиках
 WATERMARK_TEXT = "Михаил Шардин https://shardin.name/"
 
@@ -51,21 +51,21 @@ plt.rcParams.update({
 
 SP500_CRISES = [
     ("1907\nPanic",        1907,  1, "#8B0000", "Panic of 1907: падение ~40-50%"),
-    ("1929\nCrash",        1929, 10, "#CC0000", "Wall Street Crash 1929: падение ~86%, восстановление — десятилетия"),
-    ("1937\nRecession",    1937,  3, "#FF4444", "Рецессия 1937-38 внутри Великой депрессии: просадка ~50%"),
+    ("1929\nCrash",        1929, 10, "#CC0000", "Wall Street Crash 1929: падение ~86%"),
+    ("1937\nRecession",    1937,  3, "#FF4444", "Рецессия 1937-38: просадка ~50%"),
     ("1973\nOil",          1973, 10, "#FF8800", "Нефтяной кризис 1973-74: просадка ~48%"),
     ("1987\nBlack Mon",    1987, 10, "#FFAA00", "Black Monday 1987: однодневное падение ~22%"),
     ("2000\nDot-com",      2000,  3, "#886600", "Крах доткомов 2000-02: просадка S&P500 ~49%"),
     ("2008\nGFC",          2008,  9, "#000088", "Global Financial Crisis 2007-09: просадка ~57%"),
-    ("2020\nCOVID",        2020,  2, "#008800", "COVID crash 2020: падение ~34% за несколько недель"),
-    ("2022\nFed",          2022,  1, "#006666", "Медвежий рынок 2022 из-за роста ставок ФРС: просадка ~25%"),
+    ("2020\nCOVID",        2020,  2, "#008800", "COVID crash 2020: падение ~34%"),
+    ("2022\nFed",          2022,  1, "#006666", "Медвежий рынок 2022: просадка ~25%"),
 ]
 
 IMOEX_CRISES = [
-    ("1998\nДефолт",       1998,  8, "#8B0000", "Российский финансовый кризис 1998: один из сильнейших ударов по активам"),
-    ("2000\nДоткомы",      2000,  3, "#FF4444", "Крах доткомов 2000-02: затронул Россию слабее, но снижение было заметным"),
+    ("1998\nДефолт",       1998,  8, "#8B0000", "Российский финансовый кризис 1998"),
+    ("2000\nДоткомы",      2000,  3, "#FF4444", "Крах доткомов 2000-02"),
     ("2008\nГФК",          2008,  9, "#000088", "Global Financial Crisis 2008-09"),
-    ("2011\nЕврокризис",   2011,  8, "#FF8800", "Европейский долговой кризис 2011-12 и замедление роста"),
+    ("2011\nЕврокризис",   2011,  8, "#FF8800", "Европейский долговой кризис 2011-12"),
     ("2014\nСанкции",      2014,  3, "#886600", "Падение нефти и валютный кризис 2014-15"),
     ("2020\nCOVID",        2020,  2, "#008800", "Пандемия COVID-19 2020"),
     ("2022\nСВО",          2022,  2, "#9900CC", "СВО 2022"),
@@ -77,7 +77,6 @@ IMOEX_CRISES = [
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def add_watermark(fig):
-    """Добавляет водяной знак (копирайт) на график, если он включен в настройках."""
     if ENABLE_WATERMARK:
         fig.text(0.99, 0.015, WATERMARK_TEXT, 
                  fontsize=9, color="gray", alpha=0.6, 
@@ -88,7 +87,8 @@ def add_watermark(fig):
 # 1. ЗАГРУЗКА ДАННЫХ
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def load_imoex(path="IMOEX.csv"):
+def load_moex_format(path):
+    """Универсальная загрузка для IMOEX и MCFTR (одинаковый формат Мосбиржи)"""
     df = pd.read_csv(path, sep=";", decimal=",", thousands=None, low_memory=False)
     df = df[["TRADEDATE", "CLOSE"]].copy()
     df.columns = ["date", "close"]
@@ -115,7 +115,6 @@ def load_sp500(path="s-and-p-500.csv"):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def calc_returns(monthly: pd.Series, horizons=HORIZONS):
-    """Для каждой даты входа считаем полную доходность и CAGR на каждый горизонт."""
     results = {}
     for h in horizons:
         months = h * 12
@@ -137,28 +136,22 @@ def calc_returns(monthly: pd.Series, horizons=HORIZONS):
 
 def log_separator(title=""):
     if title:
-        print(f"\n{'='*70}")
+        print(f"\n{'='*80}")
         print(f"  {title}")
-        print(f"{'='*70}")
+        print(f"{'='*80}")
     else:
-        print("-" * 70)
+        print("-" * 80)
 
-def log_data(sp500, imoex, ret_sp, ret_im):
-    """Выводит все ключевые данные в текстовом виде для передачи в LLM."""
-
+def log_data(sp500, imoex, mcftr, ret_sp, ret_im, ret_mc):
     log_separator("ИСХОДНЫЕ ДАННЫЕ")
-    print(f"S&P500:  с {sp500.index[0].date()} по {sp500.index[-1].date()}  ({len(sp500)} мес.)")
-    print(f"  Первое значение: {sp500.iloc[0]:.2f}")
-    print(f"  Последнее значение: {sp500.iloc[-1]:.2f}")
-    print(f"  Общий рост за всё время: {(sp500.iloc[-1]/sp500.iloc[0]-1)*100:.1f}%")
-    print()
-    print(f"IMOEX:   с {imoex.index[0].date()} по {imoex.index[-1].date()}  ({len(imoex)} мес.)")
-    print(f"  Первое значение: {imoex.iloc[0]:.2f}")
-    print(f"  Последнее значение: {imoex.iloc[-1]:.2f}")
-    print(f"  Общий рост за всё время: {(imoex.iloc[-1]/imoex.iloc[0]-1)*100:.1f}%")
+    for name, data in [("S&P500", sp500), ("IMOEX", imoex), ("MCFTR", mcftr)]:
+        print(f"{name+':':<8} с {data.index[0].date()} по {data.index[-1].date()}  ({len(data)} мес.)")
+        print(f"  Первое: {data.iloc[0]:.2f}  |  Последнее: {data.iloc[-1]:.2f}  |  Рост: {(data.iloc[-1]/data.iloc[0]-1)*100:.1f}%")
+    
+    datasets = [("S&P500 (USD)", ret_sp), ("IMOEX (RUB)", ret_im), ("MCFTR (RUB)", ret_mc)]
 
     log_separator("РАСПРЕДЕЛЕНИЕ ИТОГОВОЙ ДОХОДНОСТИ ПО ГОРИЗОНТАМ")
-    for name, ret_dict in [("S&P500 (USD)", ret_sp), ("IMOEX (RUB)", ret_im)]:
+    for name, ret_dict in datasets:
         print(f"\n{name}")
         print(f"{'Горизонт':>10} {'N':>6} {'Медиана%':>10} {'Среднее%':>10} "
               f"{'P10%':>8} {'P25%':>8} {'P75%':>8} {'P90%':>8} "
@@ -182,7 +175,7 @@ def log_data(sp500, imoex, ret_sp, ret_im):
                   f"{(r<0).mean()*100:>9.1f}%")
 
     log_separator("CAGR (СРЕДНЕГОДОВАЯ ДОХОДНОСТЬ) ПО ГОРИЗОНТАМ")
-    for name, ret_dict in [("S&P500 (USD)", ret_sp), ("IMOEX (RUB)", ret_im)]:
+    for name, ret_dict in datasets:
         print(f"\n{name}")
         print(f"{'Горизонт':>10} {'Медиана CAGR%':>15} {'Среднее CAGR%':>15} "
               f"{'Худший CAGR%':>14} {'Лучший CAGR%':>14}")
@@ -198,7 +191,7 @@ def log_data(sp500, imoex, ret_sp, ret_im):
                   f"{r.max():>14.2f}")
 
     log_separator("ДОХОДНОСТЬ ПО ДЕСЯТИЛЕТИЯМ (горизонт 10 лет, CAGR %)")
-    for name, ret_dict in [("S&P500 (USD)", ret_sp), ("IMOEX (RUB)", ret_im)]:
+    for name, ret_dict in datasets:
         h = 10
         r = ret_dict[h]["cagr"].dropna() * 100
         if len(r) == 0:
@@ -222,36 +215,41 @@ def log_data(sp500, imoex, ret_sp, ret_im):
                   f"{row['best']:>9.2f}")
 
     log_separator("ВЕРОЯТНОСТЬ УБЫТКА P(R < 0) ПО ГОРИЗОНТАМ")
-    print(f"\n{'Горизонт':>10}   {'S&P500':>8}   {'IMOEX':>8}")
-    print("-" * 34)
+    print(f"\n{'Горизонт':>10}   {'S&P500':>8}   {'IMOEX':>8}   {'MCFTR':>8}")
+    print("-" * 46)
     for h in HORIZONS:
         r_sp = ret_sp[h]["total_ret"].dropna()
         r_im = ret_im[h]["total_ret"].dropna()
+        r_mc = ret_mc[h]["total_ret"].dropna()
         p_sp = (r_sp < 0).mean() * 100 if len(r_sp) else float("nan")
         p_im = (r_im < 0).mean() * 100 if len(r_im) else float("nan")
-        print(f"{h:>8}л   {p_sp:>7.1f}%   {p_im:>7.1f}%")
+        p_mc = (r_mc < 0).mean() * 100 if len(r_mc) else float("nan")
+        
+        sp_str = f"{p_sp:>7.1f}%" if not pd.isna(p_sp) else "    н/д"
+        im_str = f"{p_im:>7.1f}%" if not pd.isna(p_im) else "    н/д"
+        mc_str = f"{p_mc:>7.1f}%" if not pd.isna(p_mc) else "    н/д"
+        
+        print(f"{h:>8}л   {sp_str}   {im_str}   {mc_str}")
 
     log_separator("СРАВНЕНИЕ ДОХОДНОСТИ ВОКРУГ КРИЗИСНЫХ ДАТ")
     _log_crisis_returns("S&P500 (USD)", sp500, ret_sp, SP500_CRISES)
     _log_crisis_returns("IMOEX  (RUB)", imoex, ret_im, IMOEX_CRISES)
+    _log_crisis_returns("MCFTR  (RUB)", mcftr, ret_mc, IMOEX_CRISES) # Используем те же кризисы, что у IMOEX
 
     log_separator("КОНЕЦ ЛОГА")
 
 def _log_crisis_returns(name, monthly, ret_dict, crises):
-    """Для каждого кризиса показывает доходность при входе за 3 года до и после."""
     print(f"\n{name}")
     for label, year, month, color, desc in crises:
         crisis_date = pd.Timestamp(year=year, month=month, day=1)
         if crisis_date < monthly.index[0] or crisis_date > monthly.index[-1]:
             continue
         print(f"\n  [{year}/{month:02d}] {desc}")
-        # Входы: -36, -24, -12, 0, +12, +24, +36 месяцев относительно кризиса
         offsets = [-36, -24, -12, 0, 12, 24, 36]
         for h in [1, 3, 5, 10]:
             row_parts = [f"    горизонт {h:2d}л: "]
             for off in offsets:
                 entry = crisis_date + pd.DateOffset(months=off)
-                # Ближайшая дата в данных
                 idx = monthly.index.searchsorted(entry)
                 if idx >= len(monthly):
                     row_parts.append(f"off={off:+4d}м:    н/д  ")
@@ -271,12 +269,18 @@ def _log_crisis_returns(name, monthly, ret_dict, crises):
 # 4. ГРАФИКИ
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def plot_distribution(ret_dict_sp, ret_dict_im, horizons=HORIZONS, out="1_distribution.png"):
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6), sharey=False)
+def plot_distribution(ret_dict_sp, ret_dict_im, ret_dict_mc, horizons=HORIZONS, out="1_distribution.png"):
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6), sharey=False)
     fig.suptitle("Распределение итоговой доходности ($100/₽100 вложено в начале периода)",
-                 fontsize=13, fontweight="bold", y=1.01)
+                 fontsize=14, fontweight="bold", y=1.02)
 
-    for ax, ret_dict, title in zip(axes, [ret_dict_sp, ret_dict_im], ["S&P 500 (USD)", "IMOEX (RUB)"]):
+    datasets = [
+        (ret_dict_sp, "S&P 500 (USD)"), 
+        (ret_dict_im, "IMOEX (RUB - без див.)"),
+        (ret_dict_mc, "MCFTR (RUB - полная дох.)")
+    ]
+
+    for ax, (ret_dict, title) in zip(axes, datasets):
         data   = [ret_dict[h]["total_ret"].dropna() * 100 for h in horizons]
         labels = [f"{h}л" for h in horizons]
         bp = ax.boxplot(data, patch_artist=True, notch=False,
@@ -299,7 +303,7 @@ def plot_distribution(ret_dict_sp, ret_dict_im, horizons=HORIZONS, out="1_distri
     print(f"  ✓ {out}")
 
 
-def plot_decade_table(ret_sp, ret_im, out="2_decades.png"):
+def plot_decade_table(ret_sp, ret_im, ret_mc, out="2_decades.png"):
     h = 10
     def make_tbl(ret_dict):
         r = ret_dict[h]["cagr"].dropna() * 100
@@ -310,9 +314,10 @@ def plot_decade_table(ret_sp, ret_im, out="2_decades.png"):
         tbl["Десятилетие"] = tbl["Десятилетие"].astype(str) + "-е"
         return tbl
 
-    tbl_sp, tbl_im = make_tbl(ret_sp), make_tbl(ret_im)
-    fig, axes = plt.subplots(1, 2, figsize=(15, max(len(tbl_sp), len(tbl_im)) * 0.55 + 2.5))
-    fig.suptitle(f"Среднегодовая доходность Buy & Hold — горизонт {h} лет", fontsize=13, fontweight="bold")
+    tbl_sp, tbl_im, tbl_mc = make_tbl(ret_sp), make_tbl(ret_im), make_tbl(ret_mc)
+    max_rows = max(len(tbl_sp), len(tbl_im), len(tbl_mc))
+    fig, axes = plt.subplots(1, 3, figsize=(21, max_rows * 0.55 + 2.5))
+    fig.suptitle(f"Среднегодовая доходность Buy & Hold — горизонт {h} лет", fontsize=14, fontweight="bold")
 
     def draw_table(ax, tbl, title):
         ax.axis("off")
@@ -337,6 +342,8 @@ def plot_decade_table(ret_sp, ret_im, out="2_decades.png"):
 
     draw_table(axes[0], tbl_sp, "S&P 500 (USD)")
     draw_table(axes[1], tbl_im, "IMOEX (RUB)")
+    draw_table(axes[2], tbl_mc, "MCFTR (RUB - полная доходность)")
+    
     plt.tight_layout()
     add_watermark(fig)
     plt.savefig(out, bbox_inches="tight")
@@ -344,13 +351,27 @@ def plot_decade_table(ret_sp, ret_im, out="2_decades.png"):
     print(f"  ✓ {out}")
 
 
-def plot_loss_probability(ret_sp, ret_im, horizons=HORIZONS, out="3_loss_probability.png"):
+def plot_loss_probability(ret_sp, ret_im, ret_mc, horizons=HORIZONS, out="3_loss_probability.png"):
     fig, ax = plt.subplots(figsize=(10, 5))
-    for ret_dict, label, style in [(ret_sp, "S&P 500", "-o"), (ret_im, "IMOEX", "--s")]:
-        probs = [(ret_dict[h]["total_ret"].dropna() < 0).mean() * 100 for h in horizons]
-        ax.plot(horizons, probs, style, label=label, linewidth=2, markersize=7)
+    
+    datasets = [
+        (ret_sp, "S&P 500", "-o", "#4e79a7"), 
+        (ret_im, "IMOEX (без див.)", "--s", "#e15759"),
+        (ret_mc, "MCFTR (с див.)", "-.^", "#59a14f")
+    ]
+    
+    for ret_dict, label, style, color in datasets:
+        probs = []
+        for h in horizons:
+            r = ret_dict[h]["total_ret"].dropna()
+            prob = (r < 0).mean() * 100 if len(r) > 0 else np.nan
+            probs.append(prob)
+            
+        ax.plot(horizons, probs, style, color=color, label=label, linewidth=2, markersize=7)
         for x, y in zip(horizons, probs):
-            ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=9)
+            if not np.isnan(y):
+                ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", fontsize=8)
+                
     ax.set_title("Вероятность убытка P(R < 0) в зависимости от горизонта", fontsize=13, fontweight="bold")
     ax.set_xlabel("Горизонт инвестирования, лет")
     ax.set_ylabel("Вероятность убытка, %")
@@ -366,15 +387,24 @@ def plot_loss_probability(ret_sp, ret_im, horizons=HORIZONS, out="3_loss_probabi
     print(f"  ✓ {out}")
 
 
-def plot_summary_cagr(ret_sp, ret_im, horizons=HORIZONS, out="4_cagr_summary.png"):
-    fig, ax = plt.subplots(figsize=(10, 5))
-    x, w = np.arange(len(horizons)), 0.35
-    med_sp = [ret_sp[h]["cagr"].dropna().median() * 100 for h in horizons]
-    med_im = [ret_im[h]["cagr"].dropna().median() * 100 for h in horizons]
-    bars1 = ax.bar(x - w/2, med_sp, w, label="S&P 500", color="#4e79a7")
-    bars2 = ax.bar(x + w/2, med_im, w, label="IMOEX",   color="#e15759")
-    for bar in list(bars1) + list(bars2):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3, f"{bar.get_height():.1f}%", ha="center", fontsize=9)
+def plot_summary_cagr(ret_sp, ret_im, ret_mc, horizons=HORIZONS, out="4_cagr_summary.png"):
+    fig, ax = plt.subplots(figsize=(12, 5))
+    x = np.arange(len(horizons))
+    w = 0.25 # Уменьшили ширину колонок для 3х элементов
+    
+    med_sp = [ret_sp[h]["cagr"].dropna().median() * 100 if len(ret_sp[h]["cagr"].dropna()) else 0 for h in horizons]
+    med_im = [ret_im[h]["cagr"].dropna().median() * 100 if len(ret_im[h]["cagr"].dropna()) else 0 for h in horizons]
+    med_mc = [ret_mc[h]["cagr"].dropna().median() * 100 if len(ret_mc[h]["cagr"].dropna()) else 0 for h in horizons]
+    
+    bars1 = ax.bar(x - w, med_sp, w, label="S&P 500", color="#4e79a7")
+    bars2 = ax.bar(x,     med_im, w, label="IMOEX",   color="#e15759")
+    bars3 = ax.bar(x + w, med_mc, w, label="MCFTR",   color="#59a14f")
+    
+    for bar in list(bars1) + list(bars2) + list(bars3):
+        h_val = bar.get_height()
+        if h_val != 0:
+            ax.text(bar.get_x() + bar.get_width()/2, h_val + 0.3, f"{h_val:.1f}%", ha="center", fontsize=8)
+            
     ax.set_xticks(x)
     ax.set_xticklabels([f"{h} лет" for h in horizons])
     ax.set_ylabel("Медианная CAGR, %")
@@ -411,7 +441,7 @@ def _add_crisis_lines(ax, entry_dates, crises, mat_height):
         if target < entry_dates[0] or target > entry_dates[-1]: continue
         idx = entry_dates.searchsorted(target)
         if idx >= len(entry_dates): continue
-        ax.axvline(idx, color="black", linewidth=1.2, alpha=0.7, linestyle="--") # Сделал линии кризисов черными для контраста
+        ax.axvline(idx, color="black", linewidth=1.2, alpha=0.7, linestyle="--") 
         y_pos = mat_height * (0.97 - 0.22 * (i % 4))
         ax.text(idx + 0.5, y_pos, label, color="black", fontsize=7, fontweight="bold",
                 rotation=90, va="top", bbox=dict(boxstyle="round,pad=0.1", fc="white", alpha=0.75, ec="none"))
@@ -431,7 +461,6 @@ def plot_heatmap(monthly: pd.Series, title: str, out: str,
 
     fig, ax = plt.subplots(figsize=(20, 8))
 
-    # SymLogNorm с настройкой из шапки
     norm = matplotlib.colors.SymLogNorm(
         linthresh=HEATMAP_LINTHRESH, 
         linscale=1.0,
@@ -440,9 +469,8 @@ def plot_heatmap(monthly: pd.Series, title: str, out: str,
         base=10
     )
     
-    # Используем палитру из настроек (по умолчанию RdBu_r)
     cmap = plt.get_cmap(HEATMAP_CMAP).copy()
-    cmap.set_bad(color="#E0E0E0") # Серый фон для пустых значений (будущее)
+    cmap.set_bad(color="#E0E0E0")
 
     im = ax.imshow(mat, aspect="auto", cmap=cmap, norm=norm, origin="lower",
                    extent=[0, mat.shape[1], 0.5, max_years + 0.5])
@@ -459,8 +487,7 @@ def plot_heatmap(monthly: pd.Series, title: str, out: str,
     cbar = plt.colorbar(im, ax=ax, fraction=0.022, pad=0.02)
     cbar.set_label("Итоговая доходность, %", fontsize=9)
     
-    # Формируем логичные метки для легенды цвета
-    cbar_ticks = [-80, -50, -20, 0, 20, 50, 100, 200, 500, 1000, 2000, 3000, 5000]
+    cbar_ticks = [-80, -50, -20, 0, 20, 50, 100, 200, 500, 1000, 2000, 3000, 5000, 10000]
     cbar_ticks = [t for t in cbar_ticks if vmin_pct <= t <= vmax_pct]
     cbar.set_ticks(cbar_ticks)
     cbar.set_ticklabels([f"{t}%" for t in cbar_ticks], fontsize=8)
@@ -474,7 +501,8 @@ def plot_heatmap(monthly: pd.Series, title: str, out: str,
             for lbl, year, _month, _c, _desc in crises
             if entry_dates[0] <= pd.Timestamp(year=year, month=_month, day=1) <= entry_dates[-1]
         ]
-        ax.legend(handles=legend_elements, loc="upper left", fontsize=7, framealpha=0.9, ncol=2)
+        if legend_elements:
+            ax.legend(handles=legend_elements, loc="upper left", fontsize=7, framealpha=0.9, ncol=2)
 
     plt.tight_layout()
     add_watermark(fig)
@@ -490,25 +518,27 @@ def plot_heatmap(monthly: pd.Series, title: str, out: str,
 if __name__ == "__main__":
     print("Загружаем данные...")
     sp500 = load_sp500("s-and-p-500.csv")
-    imoex = load_imoex("IMOEX.csv")
+    imoex = load_moex_format("IMOEX.csv")
+    mcftr = load_moex_format("MCFTR.csv") # Загружаем новый индекс
 
     print("\nСчитаем доходности...")
     ret_sp = calc_returns(sp500)
     ret_im = calc_returns(imoex)
+    ret_mc = calc_returns(mcftr)
 
-    print("\n" + "#" * 70)
+    print("\n" + "#" * 80)
     print("# ТЕКСТОВЫЙ ЛОГ ДАННЫХ (для анализа LLM)")
-    print("#" * 70)
-    log_data(sp500, imoex, ret_sp, ret_im)
+    print("#" * 80)
+    log_data(sp500, imoex, mcftr, ret_sp, ret_im, ret_mc)
 
-    print("\n" + "#" * 70)
+    print("\n" + "#" * 80)
     print("# ГЕНЕРАЦИЯ ГРАФИКОВ")
-    print("#" * 70)
+    print("#" * 80)
 
-    plot_distribution(ret_sp, ret_im, out="1_distribution.png")
-    plot_decade_table(ret_sp, ret_im, out="2_decades.png")
-    plot_loss_probability(ret_sp, ret_im, out="3_loss_probability.png")
-    plot_summary_cagr(ret_sp, ret_im, out="4_cagr_summary.png")
+    plot_distribution(ret_sp, ret_im, ret_mc, out="1_distribution.png")
+    plot_decade_table(ret_sp, ret_im, ret_mc, out="2_decades.png")
+    plot_loss_probability(ret_sp, ret_im, ret_mc, out="3_loss_probability.png")
+    plot_summary_cagr(ret_sp, ret_im, ret_mc, out="4_cagr_summary.png")
 
     plot_heatmap(
         sp500,
@@ -516,16 +546,26 @@ if __name__ == "__main__":
         out="5_heatmap_sp500.png",
         crises=SP500_CRISES,
         vmin_pct=-90, 
-        vmax_pct=1500,  # <-- Снижен порог vmax для лучшего контраста средних значений
+        vmax_pct=1500,  
     )
 
     plot_heatmap(
         imoex,
-        title="Тепловая карта доходности IMOEX  |  X: год входа, Y: горизонт",
+        title="Тепловая карта доходности IMOEX (без див.) | X: год входа, Y: горизонт",
         out="6_heatmap_imoex.png",
         crises=IMOEX_CRISES,
         vmin_pct=-95, 
-        vmax_pct=3000,  # <-- Снижен порог vmax для лучшего контраста
+        vmax_pct=3000, 
+    )
+
+    # Новый график для MCFTR
+    plot_heatmap(
+        mcftr,
+        title="Тепловая карта доходности MCFTR (с дивидендами) | X: год входа, Y: горизонт",
+        out="7_heatmap_mcftr.png",
+        crises=IMOEX_CRISES, # Кризисы для России те же
+        vmin_pct=-95, 
+        vmax_pct=10000, # Для полной доходности лимиты обычно нужны выше
     )
 
     print("\n✅ Готово.")
